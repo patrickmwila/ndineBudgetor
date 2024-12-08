@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Finance Tracker</h2>
+        </div>
+    </div>
+
+    <!-- Savings Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Savings</h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#updateSavingsModal">
+                        Update Savings
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Bank Savings</h5>
+                                    <h3 class="{% if savings.bank and savings.bank.amount > 0 %}text-success{% endif %}">
+                                        {{ savings.bank.currency if savings.bank else current_user.default_currency }} 
+                                        {{ "%.2f"|format(savings.bank.amount) if savings.bank else "0.00" }}
+                                    </h3>
+                                    <p class="text-muted">Last updated: {{ savings.bank.date.strftime('%Y-%m-%d') if savings.bank else 'Never' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Mobile Money</h5>
+                                    <h3 class="{% if savings.mobile_money and savings.mobile_money.amount > 0 %}text-success{% endif %}">
+                                        {{ savings.mobile_money.currency if savings.mobile_money else current_user.default_currency }} 
+                                        {{ "%.2f"|format(savings.mobile_money.amount) if savings.mobile_money else "0.00" }}
+                                    </h3>
+                                    <p class="text-muted">Last updated: {{ savings.mobile_money.date.strftime('%Y-%m-%d') if savings.mobile_money else 'Never' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Cash</h5>
+                                    <h3 class="{% if savings.cash and savings.cash.amount > 0 %}text-success{% endif %}">
+                                        {{ savings.cash.currency if savings.cash else current_user.default_currency }} 
+                                        {{ "%.2f"|format(savings.cash.amount) if savings.cash else "0.00" }}
+                                    </h3>
+                                    <p class="text-muted">Last updated: {{ savings.cash.date.strftime('%Y-%m-%d') if savings.cash else 'Never' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Investments Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Investments</h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvestmentModal">
+                        Add Investment
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Initial Value</th>
+                                    <th>Current Value</th>
+                                    <th>Performance</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for investment in investments %}
+                                <tr>
+                                    <td>{{ investment.type|title }}</td>
+                                    <td>{{ investment.description }}</td>
+                                    <td>{{ investment.currency }} {{ "%.2f"|format(investment.initial_value) }}</td>
+                                    <td>{{ investment.currency }} {{ "%.2f"|format(investment.current_value) }}</td>
+                                    <td>
+                                        {% set performance = ((investment.current_value - investment.initial_value) / investment.initial_value * 100)|round|int %}
+                                        <span class="badge {% if performance >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ performance }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-primary" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#updateInvestmentModal{{ investment.id }}">
+                                            Update Value
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Savings Modal -->
+<div class="modal fade" id="updateSavingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Savings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('update_savings') }}">
+                    <div class="mb-3">
+                        <label for="type" class="form-label">Type</label>
+                        <select class="form-select" id="type" name="type" required>
+                            <option value="bank">Bank</option>
+                            <option value="mobile_money">Mobile Money</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <div class="input-group">
+                            <select class="form-select" style="max-width: 120px;" name="currency" required>
+                                {% for code, name in currencies.items() %}
+                                <option value="{{ code }}" {% if code == current_user.default_currency %}selected{% endif %}>
+                                    {{ code }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Investment Modal -->
+<div class="modal fade" id="addInvestmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Investment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('add_investment') }}">
+                    <div class="mb-3">
+                        <label for="type" class="form-label">Type</label>
+                        <select class="form-select" id="type" name="type" required>
+                            <option value="stocks">Stocks</option>
+                            <option value="bonds">Bonds</option>
+                            <option value="mutual_funds">Mutual Funds</option>
+                            <option value="real_estate">Real Estate</option>
+                            <option value="crypto">Cryptocurrency</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="initial_value" class="form-label">Initial Value</label>
+                        <div class="input-group">
+                            <select class="form-select" style="max-width: 120px;" name="currency" required>
+                                {% for code, name in currencies.items() %}
+                                <option value="{{ code }}" {% if code == current_user.default_currency %}selected{% endif %}>
+                                    {{ code }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" class="form-control" id="initial_value" name="initial_value" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="current_value" class="form-label">Current Value</label>
+                        <input type="number" class="form-control" id="current_value" name="current_value" step="0.01" min="0" required>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Investment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Investment Value Modals -->
+{% for investment in investments %}
+<div class="modal fade" id="updateInvestmentModal{{ investment.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Investment Value</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('update_investment', investment_id=investment.id) }}">
+                    <div class="mb-3">
+                        <label for="current_value" class="form-label">Current Value ({{ investment.currency }})</label>
+                        <input type="number" class="form-control" id="current_value" name="current_value" 
+                               step="0.01" min="0" value="{{ "%.2f"|format(investment.current_value) }}" required>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

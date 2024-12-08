@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Transactions</h2>
+    
+    <!-- Currency Filter -->
+    <div class="mb-3">
+        <form method="GET" action="{{ url_for('transactions') }}" class="d-flex align-items-center">
+            <label for="currency" class="me-2">Currency:</label>
+            <select name="currency" id="currency" class="form-select w-auto" onchange="this.form.submit()">
+                {% for code, name in currencies.items() %}
+                <option value="{{ code }}" {% if code == selected_currency %}selected{% endif %}>
+                    {{ code }} - {{ name }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <!-- Add Transaction Button -->
+    <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+        Add Transaction
+    </button>
+
+    <!-- Transactions Table -->
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ transaction.description }}</td>
+                    <td>{{ transaction.category.name if transaction.category else '-' }}</td>
+                    <td>
+                        <span class="badge {% if transaction.type == 'income' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ transaction.type|title }}
+                        </span>
+                    </td>
+                    <td>{{ transaction.source|title }}</td>
+                    <td>{{ transaction.currency }} {{ "%.2f"|format(transaction.amount) }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTransaction({{ transaction.id }})">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Transaction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transactionForm" action="{{ url_for('create_transaction') }}" method="POST">
+                    <!-- Transaction Type -->
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="type" id="income" value="income" 
+                                   autocomplete="off" onchange="updateCategoryOptions()">
+                            <label class="btn btn-outline-success" for="income">Income</label>
+                            
+                            <input type="radio" class="btn-check" name="type" id="expense" value="expense" 
+                                   autocomplete="off" checked onchange="updateCategoryOptions()">
+                            <label class="btn btn-outline-danger" for="expense">Expense</label>
+                        </div>
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                    </div>
+
+                    <!-- Currency -->
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Currency</label>
+                        <select class="form-select" id="currency" name="currency" required>
+                            {% for code, name in currencies.items() %}
+                            <option value="{{ code }}" {% if code == current_user.default_currency %}selected{% endif %}>
+                                {{ code }} - {{ name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Source -->
+                    <div class="mb-3">
+                        <label for="source" class="form-label">Source/Destination</label>
+                        <select class="form-select" id="source" name="source" required>
+                            <option value="bank">Bank</option>
+                            <option value="mobile_money">Mobile Money</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category</label>
+                        <select class="form-select" id="category_id" name="category_id">
+                            <option value="">Select Category</option>
+                            <optgroup label="Expense Categories" id="expenseCategories">
+                                {% for category in expense_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="Income Categories" id="incomeCategories" style="display:none;">
+                                {% for category in income_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                        <div id="categoryHelp" class="form-text text-danger" style="display:none;">
+                            Category is required for expenses
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" 
+                               value="{{ today.strftime('%Y-%m-%d') }}" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Transaction</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateCategoryOptions() {
+    const transactionType = document.querySelector('input[name="type"]:checked').value;
+    const expenseCategories = document.getElementById('expenseCategories');
+    const incomeCategories = document.getElementById('incomeCategories');
+    const categoryHelp = document.getElementById('categoryHelp');
+    const categorySelect = document.getElementById('category_id');
+    
+    if (transactionType === 'income') {
+        expenseCategories.style.display = 'none';
+        incomeCategories.style.display = '';
+        categoryHelp.style.display = 'none';
+        categorySelect.required = false;
+    } else {
+        expenseCategories.style.display = '';
+        incomeCategories.style.display = 'none';
+        categoryHelp.style.display = '';
+        categorySelect.required = true;
+    }
+}
+
+function deleteTransaction(id) {
+    Swal.fire({
+        title: 'Delete Transaction?',
+        text: "This action cannot be undone. Are you sure?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/transaction/delete/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire(
+                        'Deleted!',
+                        'Transaction has been deleted.',
+                        'success'
+                    ).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire(
+                        'Error!',
+                        data.message || 'Error deleting transaction',
+                        'error'
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire(
+                    'Error!',
+                    'An unexpected error occurred',
+                    'error'
+                );
+            });
+        }
+    });
+}
+
+// Initialize category options on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateCategoryOptions();
+});
+</script>
+{% endblock %}
