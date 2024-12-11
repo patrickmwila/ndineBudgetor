@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -8,6 +8,8 @@ from flask_wtf.csrf import CSRFProtect
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 import os
+import csv
+from io import StringIO, BytesIO
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change this in production
@@ -1150,6 +1152,52 @@ def create_transaction():
             flash('Error creating transaction. Please try again.', 'error')
             
         return redirect(url_for('transactions'))
+
+@app.route('/export_transactions')
+@login_required
+def export_transactions():
+    """Export user's transactions to CSV"""
+    # Create a StringIO object to write CSV data
+    si = StringIO()
+    cw = csv.writer(si)
+    
+    # Write headers
+    cw.writerow(['Date', 'Type', 'Amount', 'Currency', 'Description', 'Category', 'Source'])
+    
+    # Get all transactions for the user
+    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
+    
+    # Write transaction data
+    for transaction in transactions:
+        category_name = transaction.category.name if transaction.category else 'N/A'
+        cw.writerow([
+            transaction.date.strftime('%Y-%m-%d %H:%M:%S'),
+            transaction.type,
+            transaction.amount,
+            transaction.currency,
+            transaction.description,
+            category_name,
+            transaction.source
+        ])
+    
+    # Create the response
+    output = si.getvalue()
+    si.close()
+    
+    # Generate filename with current timestamp
+    filename = f'transactions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    
+    # Convert string to bytes
+    bytes_output = BytesIO()
+    bytes_output.write(output.encode('utf-8-sig'))  # Use UTF-8 with BOM for Excel compatibility
+    bytes_output.seek(0)
+    
+    return send_file(
+        bytes_output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename
+    )
 
 def send_reset_email(user):
     """Send password reset email to user"""
