@@ -73,6 +73,36 @@ Flask-WTF==0.15.1
 email-validator==1.1.3
 ```
 
+## Configuration
+
+### Environment Variables
+
+The application uses environment variables for configuration. Create a `.env` file in the root directory with the following variables:
+
+```bash
+# Database Configuration
+SQLALCHEMY_DATABASE_URI=sqlite:///budget.db
+
+# Application Security
+SECRET_KEY=your-secret-key-here
+
+# Email Configuration
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_DEFAULT_SENDER=your-email@gmail.com
+
+# Default Admin Configuration
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=secure-password-here
+ADMIN_DEFAULT_CURRENCY=ZMW
+```
+
+> **Note**: Never commit your `.env` file to version control. A `.env.example` file is provided as a template.
+
 ## Installation
 
 1. Create a virtual environment:
