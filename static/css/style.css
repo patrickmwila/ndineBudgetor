@@ -2,28 +2,172 @@
 
 body {
     background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Navbar styling */
+.navbar {
+    background-color: #212529 !important; /* Override Bootstrap's bg-primary */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-brand {
     font-weight: bold;
+    color: #ffffff !important;
 }
 
+.navbar-nav .nav-link {
+    color: #e0e0e0 !important;
+    transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #ffffff !important;
+}
+
+.dropdown-menu {
+    background-color: #1a1a1a;
+    border: 1px solid #2d2d2d;
+}
+
+.dropdown-item {
+    color: #e0e0e0 !important;
+}
+
+.dropdown-item:hover {
+    background-color: #2d2d2d;
+    color: #ffffff !important;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: #34495E;
+    font-weight: 600;
+}
+
+/* Cards */
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
     background-color: white;
     border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    color: #34495E;
 }
 
+/* Buttons */
+.btn-primary {
+    background-color: #34495E;
+    border-color: #34495E;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #2c3e50;
+    border-color: #2c3e50;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+}
+
+/* Tables */
 .table th {
     border-top: none;
+    color: #34495E;
+    font-weight: 600;
 }
 
-.fixed-bottom {
-    z-index: 1030;
+/* Footer */
+.footer {
+    background-color: #F8F9FA !important;
+    padding: 2rem 0;
+    margin-top: 3rem;
+    border-top: 1px solid #2d2d2d;
+}
+
+.footer-logo h4 {
+    color: #34495E !important;
+    font-weight: bold;
+}
+
+.footer p {
+    color: #34495E;
+    margin-bottom: 0.5rem;
+}
+
+.social-links {
+    margin-top: 1rem;
+}
+
+.social-links a {
+    color: #34495E !important;
+    transition: color 0.3s ease;
+    margin: 0 0.5rem;
+}
+
+.social-links a:hover {
+    color: #007BFF !important;
+    transform: translateY(-2px);
+}
+
+.footer-contact a {
+    color: #34495E !important;
+    transition: color 0.3s ease;
+}
+
+.footer-contact a:hover {
+    color: #007BFF !important;
+}
+
+/* SweetAlert2 Custom Styling */
+.swal2-popup {
+    border-radius: 1rem;
+}
+
+.swal2-title {
+    color: #34495E !important;
+}
+
+.swal2-confirm {
+    background-color: #34495E !important;
+    border-radius: 0.5rem !important;
+}
+
+.swal2-cancel {
+    border-radius: 0.5rem !important;
+}
+
+/* Animation for alerts */
+.alert {
+    animation: slideIn 0.3s ease-out;
+    border-radius: 0.5rem;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 /* Mobile responsiveness */
@@ -40,20 +184,12 @@ body {
     .card-body {
         padding: 1rem;
     }
-}
-
-/* Animation for alerts */
-.alert {
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateY(-100%);
-        opacity: 0;
+    
+    .footer {
+        text-align: center;
     }
-    to {
-        transform: translateY(0);
-        opacity: 1;
+    
+    .social-links {
+        margin-top: 1.5rem;
     }
 }
