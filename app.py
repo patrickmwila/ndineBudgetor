@@ -5,24 +5,39 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask_wtf.csrf import CSRFProtect
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change this in production
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///budget.db'
 app.config['WTF_CSRF_CHECK_DEFAULT'] = False  # Disable CSRF for GET requests
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=2)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
+
+# Email configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'patrickmwila.org@gmail.com'  # Update this
+app.config['MAIL_PASSWORD'] = 'qpdm xavu bzwa hxqg'  # Update this
+app.config['MAIL_DEFAULT_SENDER'] = 'patrickmwila.org@gmail.com'  # Update this
 
 # Add min function to Jinja2 environment
 app.jinja_env.globals.update(min=min)
 
 db = SQLAlchemy()
 csrf = CSRFProtect()
+mail = Mail()
 csrf.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 db.init_app(app)
+mail.init_app(app)
+
+# Create serializer for password reset tokens
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 # Currency configuration
 SUPPORTED_CURRENCIES = {
@@ -51,6 +66,19 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+        
+    def get_reset_token(self):
+        """Generate a password reset token"""
+        return serializer.dumps(self.email, salt='password-reset-salt')
+
+    @staticmethod
+    def verify_reset_token(token, max_age=3600):  # Token expires after 1 hour
+        """Verify the password reset token"""
+        try:
+            email = serializer.loads(token, salt='password-reset-salt', max_age=max_age)
+            return User.query.filter_by(email=email).first()
+        except:
+            return None
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -134,7 +162,7 @@ def load_user(user_id):
 def check_session_timeout():
     if 'last_activity' in session:
         last_activity = datetime.fromisoformat(session['last_activity'])
-        if datetime.now() - last_activity > timedelta(minutes=2):
+        if datetime.now() - last_activity > timedelta(minutes=10):
             session.clear()
             return True
     session['last_activity'] = datetime.now().isoformat()
@@ -157,6 +185,34 @@ def check_timeout(f):
 def inject_now():
     return {'now': datetime.now()}
 
+# Password validation
+def validate_password(password):
+    """
+    Validate password strength
+    Returns (bool, str) tuple: (is_valid, error_message)
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one number"
+    
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+        return False, "Password must contain at least one special character"
+    
+    # Check for common patterns
+    common_patterns = ['password', '123456', 'qwerty', 'admin']
+    if any(pattern in password.lower() for pattern in common_patterns):
+        return False, "Password contains common patterns that are not allowed"
+    
+    return True, ""
+
 # Authentication routes
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -167,6 +223,12 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
+        
+        # Password validation
+        is_valid, error_message = validate_password(password)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('register'))
         
         if User.query.filter_by(username=username).first():
             flash('Username already exists', 'error')
@@ -1088,6 +1150,62 @@ def create_transaction():
             flash('Error creating transaction. Please try again.', 'error')
             
         return redirect(url_for('transactions'))
+
+def send_reset_email(user):
+    """Send password reset email to user"""
+    token = user.get_reset_token()
+    msg = Message('Password Reset Request',
+                recipients=[user.email])
+    msg.body = f'''To reset your password, visit the following link:
+{url_for('reset_password', token=token, _external=True)}
+
+If you did not make this request, please ignore this email.
+The link will expire in 1 hour.
+'''
+    mail.send(msg)
+
+@app.route('/reset_password', methods=['GET', 'POST'])
+def request_reset():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        email = request.form['email']
+        user = User.query.filter_by(email=email).first()
+        if user:
+            send_reset_email(user)
+            flash('An email has been sent with instructions to reset your password.', 'info')
+            return redirect(url_for('login'))
+        else:
+            flash('No account found with that email address.', 'error')
+    
+    return render_template('auth/reset_request.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    user = User.verify_reset_token(token)
+    if not user:
+        flash('Invalid or expired reset token', 'error')
+        return redirect(url_for('request_reset'))
+    
+    if request.method == 'POST':
+        password = request.form['password']
+        
+        # Password validation
+        is_valid, error_message = validate_password(password)
+        if not is_valid:
+            flash(error_message, 'error')
+            return redirect(url_for('reset_password', token=token))
+        
+        user.set_password(password)
+        db.session.commit()
+        flash('Your password has been updated! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('auth/reset_password.html')
 
 @app.route('/create_default_categories')
 @login_required

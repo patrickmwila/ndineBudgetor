@@ -144,8 +144,9 @@
 
     <!-- Session Timeout Handler -->
     <script>
+        {% if current_user.is_authenticated %}
         let lastActivity = Date.now();
-        const timeoutDuration = 2 * 60 * 1000; // 2 minutes in milliseconds
+        const timeoutDuration = 10 * 60 * 1000; // 10 minutes in milliseconds
         
         function resetTimer() {
             lastActivity = Date.now();
@@ -176,6 +177,7 @@
         
         // Initial timer start
         resetTimer();
+        {% endif %}
     </script>
 
     {% block scripts %}{% endblock %}
