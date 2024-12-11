@@ -8,22 +8,26 @@ from flask_wtf.csrf import CSRFProtect
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 import os
+from dotenv import load_dotenv
 import csv
 from io import StringIO, BytesIO
 
+# Load environment variables
+load_dotenv()
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change this in production
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///budget.db'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key-for-development')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///budget.db')
 app.config['WTF_CSRF_CHECK_DEFAULT'] = False  # Disable CSRF for GET requests
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 
 # Email configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'patrickmwila.org@gmail.com'  # Update this
-app.config['MAIL_PASSWORD'] = 'qpdm xavu bzwa hxqg'  # Update this
-app.config['MAIL_DEFAULT_SENDER'] = 'patrickmwila.org@gmail.com'  # Update this
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 
 # Add min function to Jinja2 environment
 app.jinja_env.globals.update(min=min)
@@ -1284,14 +1288,14 @@ def init_db():
         db.create_all()
         
         # Create default admin user if it doesn't exist
-        admin_user = User.query.filter_by(username='admin').first()
+        admin_user = User.query.filter_by(username=os.getenv('ADMIN_USERNAME', 'admin')).first()
         if not admin_user:
             admin_user = User(
-                username='admin',
-                email='admin@example.com',
-                default_currency='ZMW'
+                username=os.getenv('ADMIN_USERNAME'),
+                email=os.getenv('ADMIN_EMAIL'),
+                default_currency=os.getenv('ADMIN_DEFAULT_CURRENCY')
             )
-            admin_user.set_password('admin')
+            admin_user.set_password(os.getenv('ADMIN_PASSWORD'))
             
             # Create default categories for admin user
             for category_data in Category.get_default_categories():
