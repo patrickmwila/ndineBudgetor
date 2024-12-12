@@ -166,13 +166,19 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 def check_session_timeout():
-    if 'last_activity' in session:
-        last_activity = datetime.fromisoformat(session['last_activity'])
-        if datetime.now() - last_activity > timedelta(minutes=10):
+    try:
+        # Use strptime instead of fromisoformat for Python 3.6 compatibility
+        last_activity = datetime.strptime(session['last_activity'], '%Y-%m-%dT%H:%M:%S.%f')
+        if datetime.now() - last_activity > timedelta(minutes=10):  # 10 minutes timeout
+            logout_user()
             session.clear()
+            flash('Your session has expired. Please login again.', 'warning')
             return True
-    session['last_activity'] = datetime.now().isoformat()
-    return False
+        session['last_activity'] = datetime.now().isoformat()
+        return False
+    except (KeyError, ValueError):
+        session['last_activity'] = datetime.now().isoformat()
+        return False
 
 def check_timeout(f):
     @wraps(f)
