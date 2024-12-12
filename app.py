@@ -141,6 +141,7 @@ class BudgetItem(db.Model):
     planned_amount = db.Column(db.Float, nullable=False)
     spent_amount = db.Column(db.Float, default=0.0)
     archived = db.Column(db.Boolean, default=False)
+    description = db.Column(db.String(200))  # New field for other expenses description
 
 class Saving(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -507,15 +508,10 @@ def budget():
     # Get current month's budget
     current_month = date.today().replace(day=1)
     
-    # Debug print for categories
-    print("Checking categories...")
     expense_categories = Category.query.filter_by(
         user_id=current_user.id,
         type='expense'
     ).order_by(Category.name).all()
-    print(f"Found {len(expense_categories)} categories")
-    for cat in expense_categories:
-        print(f"Category: {cat.name} (ID: {cat.id})")
     
     budget = Budget.query.filter_by(
         user_id=current_user.id,
@@ -530,11 +526,15 @@ def budget():
             archived=False
         ).all()
 
-        # Calculate total spent and remaining amounts
+        # Calculate totals
         total_spent = sum(item.spent_amount for item in budget_items)
         total_planned = sum(item.planned_amount for item in budget_items)
-        total_remaining = budget.total_amount - total_planned
+        
+        # Available for budget is the difference between total budget and planned amounts
         available_for_budget = budget.total_amount - total_planned
+        
+        # Total remaining is the difference between total budget and total spent
+        total_remaining = budget.total_amount - total_spent
     else:
         budget_items = []
         total_spent = 0
@@ -545,7 +545,7 @@ def budget():
     return render_template('budget/index.html',
                          budget=budget,
                          budget_items=budget_items,
-                         categories=expense_categories,  # Changed to use our debug variable
+                         categories=expense_categories,
                          current_month=current_month,
                          currencies=SUPPORTED_CURRENCIES,
                          total_spent=total_spent,
@@ -649,66 +649,71 @@ def add_budget_item():
     try:
         budget_id = request.form.get('budget_id')
         category_id = request.form.get('category_id')
-        planned_amount = float(request.form.get('planned_amount'))
-        
+        planned_amount = request.form.get('planned_amount')
+        description = request.form.get('description', '')  # Get description from form
+
         if not all([budget_id, category_id, planned_amount]):
-            flash('Please fill in all required fields', 'error')
+            flash('Please fill in all required fields.', 'error')
             return redirect(url_for('budget'))
-            
-        # Verify budget exists and belongs to user
-        budget = Budget.query.filter_by(
-            id=budget_id,
-            user_id=current_user.id,
-            archived=False
-        ).first()
-        
-        if not budget:
-            flash('Budget not found', 'error')
+
+        budget = Budget.query.get(budget_id)
+        if not budget or budget.user_id != current_user.id:
+            flash('Invalid budget.', 'error')
             return redirect(url_for('budget'))
+
+        # Calculate total planned amount for existing items
+        existing_total = db.session.query(db.func.sum(BudgetItem.planned_amount)).filter(
+            BudgetItem.budget_id == budget_id,
+            BudgetItem.archived == False
+        ).scalar() or 0
+
+        try:
+            planned_amount = float(planned_amount)
+            if planned_amount <= 0:
+                raise ValueError
             
-        # Calculate available amount
-        existing_items = BudgetItem.query.filter_by(
-            budget_id=budget_id,
-            archived=False
-        ).all()
-        total_planned = sum(item.planned_amount for item in existing_items)
-        available_amount = budget.total_amount - total_planned
-        
-        if planned_amount > available_amount:
-            flash(f'Amount exceeds available budget. Maximum available: {budget.currency} {available_amount:.2f}', 'error')
+            # Check if adding this amount would exceed the budget
+            if existing_total + planned_amount > budget.total_amount:
+                flash(f'Cannot add item. Would exceed budget limit of {budget.currency} {budget.total_amount:.2f}', 'error')
+                return redirect(url_for('budget'))
+        except ValueError:
+            flash('Please enter a valid amount.', 'error')
             return redirect(url_for('budget'))
-            
-        # Check if item already exists
+
+        category = Category.query.get(category_id)
+        if not category:
+            flash('Invalid category.', 'error')
+            return redirect(url_for('budget'))
+
+        # Check if this category already exists in the budget
         existing_item = BudgetItem.query.filter_by(
             budget_id=budget_id,
             category_id=category_id,
             archived=False
         ).first()
-        
+
         if existing_item:
-            flash('A budget item for this category already exists', 'error')
+            flash('This category already exists in the budget.', 'error')
             return redirect(url_for('budget'))
-            
-        # Create new budget item
-        budget_item = BudgetItem(
+
+        # Create new budget item with description
+        new_item = BudgetItem(
             budget_id=budget_id,
             category_id=category_id,
             planned_amount=planned_amount,
-            spent_amount=0
+            description=description if category.name.lower() == 'other expenses' else None
         )
-        
-        db.session.add(budget_item)
+
+        db.session.add(new_item)
         db.session.commit()
-        
+
         flash('Budget item added successfully!', 'success')
-        
-    except ValueError:
-        flash('Invalid amount format', 'error')
+        return redirect(url_for('budget'))
+
     except Exception as e:
         db.session.rollback()
-        flash(f'Error adding budget item: {str(e)}', 'error')
-        
-    return redirect(url_for('budget'))
+        flash('An error occurred while adding the budget item.', 'error')
+        return redirect(url_for('budget'))
 
 @app.route('/budget/increase', methods=['POST'])
 @login_required

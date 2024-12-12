@@ -80,6 +80,7 @@
                             <thead>
                                 <tr>
                                     <th>Category</th>
+                                    <th>Description</th>
                                     <th>Planned Amount</th>
                                     <th>Spent Amount</th>
                                     <th>Remaining</th>
@@ -91,6 +92,13 @@
                                 {% for item in budget_items %}
                                 <tr>
                                     <td>{{ item.category.name }}</td>
+                                    <td>
+                                        {% if item.category.name.lower() == 'other expenses' %}
+                                            {{ item.description or '-' }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
                                     <td>{{ budget.currency }} {{ "%.2f"|format(item.planned_amount) }}</td>
                                     <td>{{ budget.currency }} {{ "%.2f"|format(item.spent_amount) }}</td>
                                     <td class="{% if item.planned_amount - item.spent_amount < 0 %}text-danger{% endif %}">
@@ -124,7 +132,8 @@
                             <tfoot>
                                 <tr class="table-active">
                                     <th>Total</th>
-                                    <th>{{ budget.currency }} {{ "%.2f"|format(budget.total_amount) }}</th>
+                                    <th></th>
+                                    <th>{{ budget.currency }} {{ "%.2f"|format(total_planned) }}</th>
                                     <th>{{ budget.currency }} {{ "%.2f"|format(total_spent) }}</th>
                                     <th>{{ budget.currency }} {{ "%.2f"|format(total_remaining) }}</th>
                                     <th colspan="2">
@@ -165,20 +174,17 @@
                     
                     <div class="mb-3">
                         <label for="category" class="form-label">Category</label>
-                        <select class="form-select" id="category" name="category_id" required>
+                        <select class="form-select" id="category" name="category_id" required onchange="toggleDescriptionField()">
                             <option value="">Select a category</option>
                             {% for category in categories %}
-                                {% set is_budgeted = false %}
-                                {% for item in budget_items %}
-                                    {% if item.category_id == category.id %}
-                                        {% set is_budgeted = true %}
-                                    {% endif %}
-                                {% endfor %}
-                                <option value="{{ category.id }}" {% if is_budgeted %}disabled{% endif %}>
-                                    {{ category.name }}{% if is_budgeted %} (Already Budgeted){% endif %}
-                                </option>
+                            <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+
+                    <div class="mb-3" id="descriptionField" style="display: none;">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="description" name="description" maxlength="200">
                     </div>
                     
                     <div class="mb-3">
@@ -457,5 +463,24 @@ function confirmArchive(budgetId) {
         }
     });
 }
+
+function toggleDescriptionField() {
+    const categorySelect = document.getElementById('category');
+    const descriptionField = document.getElementById('descriptionField');
+    const selectedOption = categorySelect.options[categorySelect.selectedIndex];
+    
+    if (selectedOption.text.toLowerCase() === 'other expenses') {
+        descriptionField.style.display = 'block';
+        document.getElementById('description').required = true;
+    } else {
+        descriptionField.style.display = 'none';
+        document.getElementById('description').required = false;
+    }
+}
+
+// Call toggleDescriptionField on page load in case the category is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+    toggleDescriptionField();
+});
 </script>
 {% endblock %}

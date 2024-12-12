@@ -8,3 +8,4 @@ Werkzeug==2.3.7
 python-dotenv==1.0.0
 email-validator==2.0.0
 itsdangerous==2.1.2
+Flask-Migrate==2.7.0
