@@ -71,6 +71,9 @@
                             <a href="{{ url_for('view_archived_budgets') }}" class="btn btn-outline-secondary">
                                 <i class="bi bi-archive"></i> View Archived
                             </a>
+                            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">
+                                Manage Categories
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -92,13 +95,7 @@
                                 {% for item in budget_items %}
                                 <tr>
                                     <td>{{ item.category.name }}</td>
-                                    <td>
-                                        {% if item.category.name.lower() == 'other expenses' %}
-                                            {{ item.description or '-' }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ item.description or '-' }}</td>
                                     <td>{{ budget.currency }} {{ "%.2f"|format(item.planned_amount) }}</td>
                                     <td>{{ budget.currency }} {{ "%.2f"|format(item.spent_amount) }}</td>
                                     <td class="{% if item.planned_amount - item.spent_amount < 0 %}text-danger{% endif %}">
@@ -169,38 +166,119 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="{{ url_for('add_budget_item') }}" id="addBudgetItemForm" data-no-ajax="true">
+                <form method="POST" action="{{ url_for('add_budget_item') }}" id="addBudgetItemForm">
                     <input type="hidden" name="budget_id" value="{{ budget.id }}">
-                    
                     <div class="mb-3">
                         <label for="category" class="form-label">Category</label>
-                        <select class="form-select" id="category" name="category_id" required onchange="toggleDescriptionField()">
-                            <option value="">Select a category</option>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3" id="descriptionField" style="display: none;">
-                        <label for="description" class="form-label">Description</label>
-                        <input type="text" class="form-control" id="description" name="description" maxlength="200">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="planned_amount" class="form-label">Planned Amount (Available: {{ budget.currency }} {{ "%.2f"|format(available_for_budget) }})</label>
-                        <div class="input-group">
-                            <span class="input-group-text">{{ budget.currency }}</span>
-                            <input type="number" class="form-control" id="planned_amount" name="planned_amount" 
-                                   step="0.01" min="0.01" max="{{ available_for_budget if available_for_budget > 0 else 0.01 }}" required>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="category" name="category_id" required>
+                                <option value="">Select a category</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                <i class="bi bi-plus"></i>
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="text-end">
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <input type="text" class="form-control" id="description" name="description" 
+                               maxlength="200" placeholder="Enter a description for this budget item">
+                        <div class="form-text">Add details about this budget item (e.g., "Monthly Internet Bill" or "Birthday Gift for Mom")</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="planned_amount" class="form-label">Planned Amount <span class="text-muted">(Available: {{ budget.currency }} {{ "%.2f"|format(available_for_budget) }})</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">{{ budget.currency }}</span>
+                            <input type="number" class="form-control" id="planned_amount" 
+                                   name="planned_amount" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Add Budget Item</button>
+                        <button type="submit" class="btn btn-primary">Add Item</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Category Name</label>
+                        <input type="text" class="form-control" id="categoryName" name="name" required
+                               maxlength="100" placeholder="Enter category name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryType" class="form-label">Category Type</label>
+                        <select class="form-select" id="categoryType" name="type" required>
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Category</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Management Section -->
+<div class="modal fade" id="manageCategoriesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Manage Categories</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Category Name</th>
+                                <th>Type</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in categories %}
+                            <tr>
+                                <td>{{ category.name }}</td>
+                                <td>{{ category.type|title }}</td>
+                                <td>
+                                    {% if not category.is_default %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                        <i class="bi bi-plus"></i> Add New Category
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -284,6 +362,12 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label for="edit_description" class="form-label">Description (Optional)</label>
+                        <input type="text" class="form-control" id="edit_description" name="description" 
+                               maxlength="200" placeholder="Enter a description for this budget item">
+                        <div class="form-text">Add details about this budget item (e.g., "Monthly Internet Bill" or "Birthday Gift for Mom")</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="edit_planned_amount" class="form-label">Planned Amount</label>
                         <div class="input-group">
                             <span class="input-group-text">{{ budget.currency }}</span>
@@ -310,39 +394,16 @@ function showAlert(title, text, icon) {
 }
 
 function showSuccessAlert(message) {
-    showAlert('Success!', message, 'success');
+    showAlert('Success', message, 'success');
 }
 
 function handleFormSubmit(form, successCallback) {
     form.addEventListener('submit', function(e) {
-        if (form.getAttribute('data-no-ajax') === 'true') {
-            return; // Let the form submit normally
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
         }
-        
-        e.preventDefault();
-        
-        fetch(form.action, {
-            method: 'POST',
-            body: new FormData(form),
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin' // Include session cookies
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                showSuccessAlert(data.message);
-                if (successCallback) successCallback(data);
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                showAlert('Error', data.message, 'error');
-            }
-        })
-        .catch(error => {
-            showAlert('Error', 'An unexpected error occurred', 'error');
-            console.error(error);
-        });
+        form.classList.add('was-validated');
     });
 }
 
@@ -374,6 +435,7 @@ function editBudgetItem(itemId, categoryId, plannedAmount) {
             },
             body: JSON.stringify({
                 category_id: document.getElementById('edit_category').value,
+                description: document.getElementById('edit_description').value,
                 planned_amount: document.getElementById('edit_planned_amount').value
             })
         })
@@ -464,23 +526,78 @@ function confirmArchive(budgetId) {
     });
 }
 
-function toggleDescriptionField() {
-    const categorySelect = document.getElementById('category');
-    const descriptionField = document.getElementById('descriptionField');
-    const selectedOption = categorySelect.options[categorySelect.selectedIndex];
-    
-    if (selectedOption.text.toLowerCase() === 'other expenses') {
-        descriptionField.style.display = 'block';
-        document.getElementById('description').required = true;
-    } else {
-        descriptionField.style.display = 'none';
-        document.getElementById('description').required = false;
-    }
+function deleteCategory(categoryId, categoryName) {
+    Swal.fire({
+        title: 'Delete Category?',
+        text: `Are you sure you want to delete the category "${categoryName}"? This cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/category/delete/${categoryId}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove category from dropdowns and table
+                    document.querySelectorAll(`option[value="${categoryId}"]`).forEach(option => option.remove());
+                    const row = document.querySelector(`tr[data-category-id="${categoryId}"]`);
+                    if (row) row.remove();
+                    
+                    showSuccessAlert(data.message);
+                    
+                    // Refresh the page to update the categories list
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showAlert('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error', 'An unexpected error occurred', 'error');
+                console.error(error);
+            });
+        }
+    });
 }
 
-// Call toggleDescriptionField on page load in case the category is pre-selected
-document.addEventListener('DOMContentLoaded', function() {
-    toggleDescriptionField();
+document.getElementById('addCategoryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch('{{ url_for("add_category") }}', {
+        method: 'POST',
+        body: new FormData(this),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Add the new category to the select dropdown
+            const categorySelect = document.getElementById('category');
+            const option = new Option(data.category.name, data.category.id);
+            categorySelect.add(option);
+            categorySelect.value = data.category.id;
+            
+            // Close the modal and show success message
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
+            modal.hide();
+            showSuccessAlert(data.message);
+        } else {
+            showAlert('Error', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('Error', 'An unexpected error occurred', 'error');
+        console.error(error);
+    });
 });
 </script>
 {% endblock %}

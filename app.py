@@ -91,24 +91,34 @@ class Category(db.Model):
     name = db.Column(db.String(100), nullable=False)
     type = db.Column(db.String(50), nullable=False)  # 'income' or 'expense'
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    is_default = db.Column(db.Boolean, default=False)  # New field to distinguish default categories
     transactions = db.relationship('Transaction', backref='category', lazy=True)
     budget_items = db.relationship('BudgetItem', backref='category', lazy=True)
     
     @staticmethod
     def get_default_categories():
         return [
+            # Income Categories
             {'name': 'Salary', 'type': 'income'},
             {'name': 'Freelance', 'type': 'income'},
             {'name': 'Investment', 'type': 'income'},
-            {'name': 'Other Income', 'type': 'income'},
-            {'name': 'Rent', 'type': 'expense'},
-            {'name': 'Utilities', 'type': 'expense'},
-            {'name': 'Groceries', 'type': 'expense'},
-            {'name': 'Transportation', 'type': 'expense'},
-            {'name': 'Entertainment', 'type': 'expense'},
-            {'name': 'Healthcare', 'type': 'expense'},
-            {'name': 'Shopping', 'type': 'expense'},
-            {'name': 'Other Expenses', 'type': 'expense'}
+            {'name': 'Business', 'type': 'income'},
+            {'name': 'Rental Income', 'type': 'income'},
+            
+            # Expense Categories
+            {'name': 'Housing', 'type': 'expense'},  # Rent, Mortgage
+            {'name': 'Utilities', 'type': 'expense'},  # Water, Electricity, Internet
+            {'name': 'Transportation', 'type': 'expense'},  # Fuel, Public Transport
+            {'name': 'Food & Groceries', 'type': 'expense'},
+            {'name': 'Healthcare', 'type': 'expense'},  # Medical, Pharmacy
+            {'name': 'Entertainment', 'type': 'expense'},  # Movies, Games, Dining Out
+            {'name': 'Shopping', 'type': 'expense'},  # Clothing, Electronics
+            {'name': 'Education', 'type': 'expense'},  # Tuition, Books, Courses
+            {'name': 'Communication', 'type': 'expense'},  # Phone, Internet, Data
+            {'name': 'Personal Care', 'type': 'expense'},  # Grooming, Gym
+            {'name': 'Charity & Gifts', 'type': 'expense'},
+            {'name': 'Insurance', 'type': 'expense'},
+            {'name': 'Debt Payment', 'type': 'expense'}
         ]
 
 class Transaction(db.Model):
@@ -604,8 +614,7 @@ def create_budget():
         flash('Invalid amount format', 'error')
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f'Error creating budget: {str(e)}')
-        flash('An error occurred while creating the budget', 'error')
+        flash(f'Error creating budget: {str(e)}', 'error')
     
     return redirect(url_for('budget'))
 
@@ -649,59 +658,35 @@ def add_budget_item():
     try:
         budget_id = request.form.get('budget_id')
         category_id = request.form.get('category_id')
-        planned_amount = request.form.get('planned_amount')
-        description = request.form.get('description', '')  # Get description from form
+        planned_amount = float(request.form.get('planned_amount', 0))
+        description = request.form.get('description', '').strip()
 
+        # Validate inputs
         if not all([budget_id, category_id, planned_amount]):
-            flash('Please fill in all required fields.', 'error')
+            flash('All fields are required.', 'error')
             return redirect(url_for('budget'))
 
-        budget = Budget.query.get(budget_id)
-        if not budget or budget.user_id != current_user.id:
-            flash('Invalid budget.', 'error')
+        budget = Budget.query.get_or_404(budget_id)
+        
+        # Check if user owns this budget
+        if budget.user_id != current_user.id:
+            flash('Unauthorized access.', 'error')
             return redirect(url_for('budget'))
 
-        # Calculate total planned amount for existing items
-        existing_total = db.session.query(db.func.sum(BudgetItem.planned_amount)).filter(
-            BudgetItem.budget_id == budget_id,
-            BudgetItem.archived == False
-        ).scalar() or 0
-
-        try:
-            planned_amount = float(planned_amount)
-            if planned_amount <= 0:
-                raise ValueError
-            
-            # Check if adding this amount would exceed the budget
-            if existing_total + planned_amount > budget.total_amount:
-                flash(f'Cannot add item. Would exceed budget limit of {budget.currency} {budget.total_amount:.2f}', 'error')
-                return redirect(url_for('budget'))
-        except ValueError:
-            flash('Please enter a valid amount.', 'error')
+        # Calculate current total planned amount
+        current_total = sum(item.planned_amount for item in budget.items if not item.archived)
+        
+        # Check if adding this amount would exceed the budget
+        if current_total + planned_amount > budget.total_amount:
+            flash('Adding this amount would exceed your total budget.', 'error')
             return redirect(url_for('budget'))
 
-        category = Category.query.get(category_id)
-        if not category:
-            flash('Invalid category.', 'error')
-            return redirect(url_for('budget'))
-
-        # Check if this category already exists in the budget
-        existing_item = BudgetItem.query.filter_by(
-            budget_id=budget_id,
-            category_id=category_id,
-            archived=False
-        ).first()
-
-        if existing_item:
-            flash('This category already exists in the budget.', 'error')
-            return redirect(url_for('budget'))
-
-        # Create new budget item with description
+        # Create new budget item
         new_item = BudgetItem(
             budget_id=budget_id,
             category_id=category_id,
             planned_amount=planned_amount,
-            description=description if category.name.lower() == 'other expenses' else None
+            description=description
         )
 
         db.session.add(new_item)
@@ -712,7 +697,7 @@ def add_budget_item():
 
     except Exception as e:
         db.session.rollback()
-        flash('An error occurred while adding the budget item.', 'error')
+        flash(f'Error adding budget item: {str(e)}', 'error')
         return redirect(url_for('budget'))
 
 @app.route('/budget/increase', methods=['POST'])
@@ -966,7 +951,6 @@ def use_budget_template(budget_id):
 # Finance module routes
 @app.route('/finance')
 @login_required
-@check_timeout
 def finance():
     # Get savings by type
     savings = {
@@ -985,7 +969,6 @@ def finance():
 
 @app.route('/finance/savings/update', methods=['POST'])
 @login_required
-@check_timeout
 def update_savings():
     saving_type = request.form['type']
     amount = float(request.form['amount'])
@@ -1007,7 +990,6 @@ def update_savings():
 
 @app.route('/finance/investment/add', methods=['POST'])
 @login_required
-@check_timeout
 def add_investment():
     investment = Investment(
         type=request.form['type'],
@@ -1025,7 +1007,6 @@ def add_investment():
 
 @app.route('/finance/investment/update/<int:investment_id>', methods=['POST'])
 @login_required
-@check_timeout
 def update_investment(investment_id):
     investment = Investment.query.get_or_404(investment_id)
     if investment.user_id != current_user.id:
@@ -1041,7 +1022,6 @@ def update_investment(investment_id):
 
 @app.route('/transactions/create', methods=['POST'])
 @login_required
-@check_timeout
 def create_transaction():
     if request.method == 'POST':
         try:
@@ -1214,6 +1194,103 @@ def export_transactions():
         download_name=filename
     )
 
+@app.route('/category/add', methods=['POST'])
+@login_required
+@check_timeout
+def add_category():
+    try:
+        name = request.form.get('name', '').strip()
+        type = request.form.get('type', '').lower()
+
+        if not name or not type or type not in ['income', 'expense']:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid category details provided.'
+            }), 400
+
+        # Check if category already exists for this user
+        existing_category = Category.query.filter_by(
+            user_id=current_user.id,
+            name=name,
+            type=type
+        ).first()
+
+        if existing_category:
+            return jsonify({
+                'status': 'error',
+                'message': f'A {type} category with this name already exists.'
+            }), 400
+
+        # Create new category
+        new_category = Category(
+            name=name,
+            type=type,
+            user_id=current_user.id
+        )
+
+        db.session.add(new_category)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Category added successfully!',
+            'category': {
+                'id': new_category.id,
+                'name': new_category.name,
+                'type': new_category.type
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error adding category: {str(e)}'
+        }), 500
+
+@app.route('/category/delete/<int:category_id>', methods=['POST'])
+@login_required
+@check_timeout
+def delete_category(category_id):
+    try:
+        category = Category.query.get_or_404(category_id)
+        
+        # Check if user owns this category
+        if category.user_id != current_user.id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized access.'
+            }), 403
+            
+        # Prevent deletion of default categories
+        if category.is_default:
+            return jsonify({
+                'status': 'error',
+                'message': 'Cannot delete default categories.'
+            }), 400
+            
+        # Check if category is in use
+        if category.transactions or category.budget_items:
+            return jsonify({
+                'status': 'error',
+                'message': 'Cannot delete category that is in use. Remove all transactions and budget items first.'
+            }), 400
+
+        db.session.delete(category)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Category deleted successfully!'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error deleting category: {str(e)}'
+        }), 500
+
 def send_reset_email(user):
     """Send password reset email to user"""
     token = user.get_reset_token()
@@ -1273,21 +1350,19 @@ def reset_password(token):
 @app.route('/create_default_categories')
 @login_required
 def create_default_categories():
-    # Check if user already has categories
-    existing_categories = Category.query.filter_by(user_id=current_user.id).count()
-    if existing_categories == 0:
-        default_categories = Category.get_default_categories()
-        for cat_data in default_categories:
-            category = Category(
-                name=cat_data['name'],
-                type=cat_data['type'],
-                user_id=current_user.id
-            )
-            db.session.add(category)
-        db.session.commit()
-        flash('Default categories have been created.', 'success')
-    else:
-        flash('You already have categories set up.', 'info')
+    # Create default categories for the user
+    default_categories = Category.get_default_categories()
+    for category in default_categories:
+        new_category = Category(
+            name=category['name'],
+            type=category['type'],
+            user_id=current_user.id,
+            is_default=True  # Mark as default category
+        )
+        db.session.add(new_category)
+    db.session.commit()
+
+    flash('Default categories have been created.', 'success')
     return redirect(url_for('budget'))
 
 def init_db():
