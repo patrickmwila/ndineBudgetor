@@ -89,11 +89,11 @@
                             </thead>
                             <tbody>
                                 {% for investment in investments %}
-                                <tr>
-                                    <td>{{ investment.type|title }}</td>
-                                    <td>{{ investment.description }}</td>
-                                    <td>{{ investment.currency }} {{ "%.2f"|format(investment.initial_value) }}</td>
-                                    <td>{{ investment.currency }} {{ "%.2f"|format(investment.current_value) }}</td>
+                                <tr data-investment-id="{{ investment.id }}">
+                                    <td data-type="{{ investment.type }}">{{ investment.type|title }}</td>
+                                    <td data-name="{{ investment.name }}">{{ investment.name }}</td>
+                                    <td data-initial-value="{{ investment.initial_value }}">{{ investment.currency }} {{ "%.2f"|format(investment.initial_value) }}</td>
+                                    <td data-current-value="{{ investment.current_value }}">{{ investment.currency }} {{ "%.2f"|format(investment.current_value) }}</td>
                                     <td>
                                         {% set performance = ((investment.current_value - investment.initial_value) / investment.initial_value * 100)|round|int %}
                                         <span class="badge {% if performance >= 0 %}bg-success{% else %}bg-danger{% endif %}">
@@ -105,6 +105,12 @@
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#updateInvestmentModal{{ investment.id }}">
                                             Update Value
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-secondary" onclick="editInvestment({{ investment.id }})">
+                                            Edit
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteInvestment({{ investment.id }}, '{{ investment.name }}')">
+                                            Delete
                                         </button>
                                     </td>
                                 </tr>
@@ -215,6 +221,60 @@
     </div>
 </div>
 
+<!-- Edit Investment Modal -->
+<div class="modal fade" id="editInvestmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Investment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editInvestmentForm">
+                    <input type="hidden" id="editInvestmentId">
+                    <div class="mb-3">
+                        <label for="editInvestmentName" class="form-label">Investment Name</label>
+                        <input type="text" class="form-control" id="editInvestmentName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editInvestmentType" class="form-label">Type</label>
+                        <select class="form-select" id="editInvestmentType" name="type" required>
+                            <option value="Stocks">Stocks</option>
+                            <option value="Bonds">Bonds</option>
+                            <option value="Mutual Funds">Mutual Funds</option>
+                            <option value="Real Estate">Real Estate</option>
+                            <option value="Cryptocurrency">Cryptocurrency</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editInitialValue" class="form-label">Initial Value</label>
+                        <div class="input-group">
+                            <span class="input-group-text" id="editInitialValueCurrency"></span>
+                            <input type="number" step="0.01" class="form-control" id="editInitialValue" name="initial_value" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCurrentValue" class="form-label">Current Value</label>
+                        <div class="input-group">
+                            <span class="input-group-text" id="editCurrentValueCurrency"></span>
+                            <input type="number" step="0.01" class="form-control" id="editCurrentValue" name="current_value" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editNotes" name="notes" rows="3"></textarea>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Update Investment Value Modals -->
 {% for investment in investments %}
 <div class="modal fade" id="updateInvestmentModal{{ investment.id }}" tabindex="-1">
@@ -241,4 +301,136 @@
     </div>
 </div>
 {% endfor %}
+
+<script>
+// Add these functions to your existing JavaScript
+function editInvestment(investmentId) {
+    // Get investment data from the table row
+    const row = document.querySelector(`tr[data-investment-id="${investmentId}"]`);
+    if (!row) {
+        console.error('Investment row not found');
+        return;
+    }
+
+    // Get the modal and show it first
+    const modal = document.getElementById('editInvestmentModal');
+    if (!modal) {
+        console.error('Edit modal not found');
+        return;
+    }
+
+    // Get the currency symbol from the value cell
+    const initialValueCell = row.querySelector('[data-initial-value]');
+    const currency = initialValueCell.textContent.trim().split(' ')[0];
+
+    // Set the currency in the input groups
+    document.getElementById('editInitialValueCurrency').textContent = currency;
+    document.getElementById('editCurrentValueCurrency').textContent = currency;
+
+    // Set the values
+    document.getElementById('editInvestmentId').value = investmentId;
+    document.getElementById('editInvestmentName').value = row.querySelector('[data-name]').textContent.trim();
+    document.getElementById('editInvestmentType').value = row.querySelector('[data-type]').dataset.type;
+    
+    // Parse the initial and current values (remove currency symbol and convert to number)
+    const initialValueText = initialValueCell.textContent.trim();
+    const currentValueText = row.querySelector('[data-current-value]').textContent.trim();
+    
+    document.getElementById('editInitialValue').value = parseFloat(initialValueText.replace(/[^0-9.-]+/g, ""));
+    document.getElementById('editCurrentValue').value = parseFloat(currentValueText.replace(/[^0-9.-]+/g, ""));
+    
+    // Show the modal
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+}
+
+function deleteInvestment(investmentId, investmentName) {
+    Swal.fire({
+        title: 'Delete Investment?',
+        text: `Are you sure you want to delete "${investmentName}"? This action cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/investment/delete/${investmentId}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove the row from the table
+                    const row = document.querySelector(`tr[data-investment-id="${investmentId}"]`);
+                    if (row) row.remove();
+                    
+                    showSuccessAlert(data.message);
+                    
+                    // Refresh the page to update totals
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showAlert('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error', 'An unexpected error occurred', 'error');
+                console.error(error);
+            });
+        }
+    });
+}
+
+// Add submit handler for edit form
+document.addEventListener('DOMContentLoaded', function() {
+    const editForm = document.getElementById('editInvestmentForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const investmentId = document.getElementById('editInvestmentId').value;
+            
+            const formData = new FormData(this);
+            
+            fetch(`/investment/edit/${investmentId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update the row in the table
+                    const row = document.querySelector(`tr[data-investment-id="${investmentId}"]`);
+                    if (row) {
+                        row.querySelector('[data-name]').textContent = data.data.name;
+                        row.querySelector('[data-name]').dataset.name = data.data.name;
+                        row.querySelector('[data-type]').textContent = data.data.type;
+                        row.querySelector('[data-type]').dataset.type = data.data.type;
+                        row.querySelector('[data-initial-value]').textContent = `${data.data.currency} ${data.data.initial_value.toFixed(2)}`;
+                        row.querySelector('[data-initial-value]').dataset.initialValue = data.data.initial_value;
+                        row.querySelector('[data-current-value]').textContent = `${data.data.currency} ${data.data.current_value.toFixed(2)}`;
+                        row.querySelector('[data-current-value]').dataset.currentValue = data.data.current_value;
+                    }
+                    
+                    // Close modal and show success message
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editInvestmentModal'));
+                    if (modal) modal.hide();
+                    showSuccessAlert(data.message);
+                    
+                    // Refresh the page to update totals
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showAlert('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Error', 'An unexpected error occurred', 'error');
+                console.error(error);
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

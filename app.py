@@ -1020,6 +1020,86 @@ def update_investment(investment_id):
     flash('Investment updated successfully!', 'success')
     return redirect(url_for('finance'))
 
+@app.route('/investment/edit/<int:investment_id>', methods=['POST'])
+@login_required
+@check_timeout
+def edit_investment(investment_id):
+    try:
+        investment = Investment.query.get_or_404(investment_id)
+        
+        # Check if user owns this investment
+        if investment.user_id != current_user.id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized access'
+            }), 403
+
+        # Get form data
+        name = request.form.get('name')
+        investment_type = request.form.get('type')
+        initial_value = request.form.get('initial_value')
+        current_value = request.form.get('current_value')
+        notes = request.form.get('notes', '')
+
+        # Update investment
+        investment.name = name
+        investment.type = investment_type
+        investment.initial_value = float(initial_value)
+        investment.current_value = float(current_value)
+        investment.notes = notes
+
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Investment updated successfully',
+            'data': {
+                'id': investment.id,
+                'name': investment.name,
+                'type': investment.type,
+                'initial_value': investment.initial_value,
+                'current_value': investment.current_value,
+                'notes': investment.notes,
+                'currency': investment.currency
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error updating investment: {str(e)}'
+        }), 500
+
+@app.route('/investment/delete/<int:investment_id>', methods=['POST'])
+@login_required
+@check_timeout
+def delete_investment(investment_id):
+    try:
+        investment = Investment.query.get_or_404(investment_id)
+        
+        # Check if user owns this investment
+        if investment.user_id != current_user.id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized access'
+            }), 403
+
+        db.session.delete(investment)
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Investment deleted successfully'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error deleting investment: {str(e)}'
+        }), 500
+
 @app.route('/transactions/create', methods=['POST'])
 @login_required
 def create_transaction():
