@@ -1371,6 +1371,17 @@ def delete_category(category_id):
             'message': f'Error deleting category: {str(e)}'
         }), 500
 
+@app.route('/get_categories')
+@login_required
+def get_all_categories():
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    return jsonify([{
+        'id': category.id,
+        'name': category.name,
+        'type': category.type,
+        'is_default': category.is_default
+    } for category in categories])
+
 def send_reset_email(user):
     """Send password reset email to user"""
     token = user.get_reset_token()

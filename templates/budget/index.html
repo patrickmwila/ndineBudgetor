@@ -256,7 +256,7 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="categories-table-body">
                             {% for category in categories %}
                             <tr>
                                 <td>{{ category.name }}</td>
@@ -567,6 +567,41 @@ function deleteCategory(categoryId, categoryName) {
     });
 }
 
+function loadCategories() {
+    fetch('/get_categories')
+        .then(response => response.json())
+        .then(data => {
+            const categoriesTable = document.querySelector('#categories-table-body');
+            categoriesTable.innerHTML = ''; // Clear existing rows
+            
+            data.forEach(category => {
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${category.name}</td>
+                    <td>${category.type.charAt(0).toUpperCase() + category.type.slice(1)}</td>
+                    <td>
+                        ${!category.is_default ? `
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteCategory(${category.id}, '${category.name}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                categoriesTable.appendChild(newRow);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading categories:', error);
+            showAlert('Error', 'Failed to load categories', 'error');
+        });
+}
+
+// Load categories when the manage categories modal is opened
+document.getElementById('manageCategoriesModal').addEventListener('show.bs.modal', function () {
+    loadCategories();
+});
+
 document.getElementById('addCategoryForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -586,9 +621,28 @@ document.getElementById('addCategoryForm').addEventListener('submit', function(e
             categorySelect.add(option);
             categorySelect.value = data.category.id;
             
-            // Close the modal and show success message
+            // Add the new category to the manage categories table
+            const categoriesTable = document.querySelector('#categories-table-body');
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${data.category.name}</td>
+                <td>${data.category.type.charAt(0).toUpperCase() + data.category.type.slice(1)}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            onclick="deleteCategory(${data.category.id}, '${data.category.name}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            categoriesTable.appendChild(newRow);
+            
+            // Close the add category modal and show success message
             const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
             modal.hide();
+            
+            // Reset the form
+            this.reset();
+            
             showSuccessAlert(data.message);
         } else {
             showAlert('Error', data.message, 'error');
@@ -601,3 +655,4 @@ document.getElementById('addCategoryForm').addEventListener('submit', function(e
 });
 </script>
 {% endblock %}
+
