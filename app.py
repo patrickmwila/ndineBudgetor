@@ -42,6 +42,13 @@ login_manager.login_view = 'login'
 db.init_app(app)
 mail.init_app(app)
 
+# Customize the unauthorized handler to not flash a message when accessing the login page directly
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.endpoint != 'login' and request.path != '/':  # Don't show message for root path or direct login access
+        flash('Please log in to access this page.', 'warning')
+    return redirect(url_for('login'))
+
 # Create serializer for password reset tokens
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
