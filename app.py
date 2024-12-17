@@ -16,8 +16,8 @@ from io import StringIO, BytesIO
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key-for-development')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', 'sqlite:///budget.db')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['WTF_CSRF_CHECK_DEFAULT'] = False  # Disable CSRF for GET requests
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 
