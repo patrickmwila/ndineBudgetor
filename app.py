@@ -1132,6 +1132,45 @@ def create_transaction():
                 flash('Please fill in all required fields', 'error')
                 return redirect(url_for('transactions'))
 
+            # For expense transactions, validate source balance and budget
+            if transaction_type == 'expense':
+                # 1. Check if source has sufficient balance
+                source_account = Saving.query.filter_by(
+                    user_id=current_user.id,
+                    type=source
+                ).first()
+                
+                if not source_account:
+                    flash(f'Error: {source} account not found. Please set up your accounts in the Finance section.', 'error')
+                    return redirect(url_for('transactions'))
+                
+                if source_account.amount < amount:
+                    flash(f'Insufficient funds in {source}. Available balance: {current_user.default_currency} {source_account.amount:.2f}', 'error')
+                    return redirect(url_for('transactions'))
+
+                # 2. Check if the expense is budgeted for
+                if category_id:
+                    current_month = date.today().replace(day=1)
+                    budget = Budget.query.filter_by(
+                        user_id=current_user.id,
+                        month=current_month,
+                        archived=False
+                    ).first()
+
+                    if not budget:
+                        flash('Please create a budget first before making expense transactions.', 'error')
+                        return redirect(url_for('budget'))
+
+                    budget_item = BudgetItem.query.filter_by(
+                        budget_id=budget.id,
+                        category_id=category_id,
+                        archived=False
+                    ).first()
+
+                    if not budget_item:
+                        flash('This expense category is not budgeted for. Please add it to your budget first.', 'error')
+                        return redirect(url_for('budget'))
+
             # Create the transaction
             transaction = Transaction(
                 amount=amount,
@@ -1147,44 +1186,20 @@ def create_transaction():
 
             # If it's an expense, update the budget
             if transaction_type == 'expense' and category_id:
-                # Get current month's budget
+                # Get current month's budget (we already validated its existence)
                 current_month = date.today().replace(day=1)
                 budget = Budget.query.filter_by(
                     user_id=current_user.id,
                     month=current_month,
                     archived=False
                 ).first()
-
-                if not budget:
-                    # Create a new budget for this month if it doesn't exist
-                    budget = Budget(
-                        month=current_month,
-                        total_amount=0,  # Start with 0, can be updated later
-                        currency=current_user.default_currency,
-                        user_id=current_user.id
-                    )
-                    db.session.add(budget)
-                    db.session.flush()  # Get the budget ID
-                    flash(f'Created new budget for {current_month.strftime("%B %Y")}', 'info')
-
-                # Find or create budget item for this category
+                
+                # Get budget item (we already validated its existence)
                 budget_item = BudgetItem.query.filter_by(
                     budget_id=budget.id,
                     category_id=category_id,
                     archived=False
                 ).first()
-
-                if not budget_item:
-                    # Create a new budget item if it doesn't exist
-                    budget_item = BudgetItem(
-                        budget_id=budget.id,
-                        category_id=category_id,
-                        planned_amount=amount,  # Set initial planned amount to this expense
-                        spent_amount=0
-                    )
-                    db.session.add(budget_item)
-                    db.session.flush()
-                    flash(f'Created new budget item for {Category.query.get(category_id).name}', 'info')
 
                 # Update spent amount
                 budget_item.spent_amount = float(budget_item.spent_amount or 0) + amount
@@ -1220,20 +1235,13 @@ def create_transaction():
                     )
                     db.session.add(saving)
             else:
-                # For expense, subtract from the specified source
+                # For expense, subtract from the specified source (we already validated the balance)
                 saving = Saving.query.filter_by(
                     user_id=current_user.id,
                     type=source
                 ).first()
-                
-                if saving:
-                    saving.amount = float(saving.amount or 0) - amount
-                    db.session.add(saving)
-                    if saving.amount < 0:
-                        flash(f'Warning: Your {source} balance is negative!', 'warning')
-                else:
-                    flash(f'Error: Could not find {source} account to deduct from', 'error')
-                    return redirect(url_for('transactions'))
+                saving.amount = float(saving.amount or 0) - amount
+                db.session.add(saving)
 
             db.session.commit()
             flash('Transaction created successfully!', 'success')
