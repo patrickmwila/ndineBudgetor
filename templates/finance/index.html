@@ -27,8 +27,8 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">Bank Savings</h5>
                                     <h3 class="{% if savings.bank and savings.bank.amount > 0 %}text-success{% endif %}">
-                                        {{ savings.bank.currency if savings.bank else current_user.default_currency }} 
-                                        {{ "%.2f"|format(savings.bank.amount) if savings.bank else "0.00" }}
+                                        {{ savings.bank.currency if savings.bank else current_user.default_currency }}
+                                        {{ savings.bank.amount|money if savings.bank else "0.00" }}
                                     </h3>
                                     <p class="text-muted">Last updated: {{ savings.bank.date.strftime('%Y-%m-%d') if savings.bank else 'Never' }}</p>
                                 </div>
@@ -39,8 +39,8 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">Mobile Money</h5>
                                     <h3 class="{% if savings.mobile_money and savings.mobile_money.amount > 0 %}text-success{% endif %}">
-                                        {{ savings.mobile_money.currency if savings.mobile_money else current_user.default_currency }} 
-                                        {{ "%.2f"|format(savings.mobile_money.amount) if savings.mobile_money else "0.00" }}
+                                        {{ savings.mobile_money.currency if savings.mobile_money else current_user.default_currency }}
+                                        {{ savings.mobile_money.amount|money if savings.mobile_money else "0.00" }}
                                     </h3>
                                     <p class="text-muted">Last updated: {{ savings.mobile_money.date.strftime('%Y-%m-%d') if savings.mobile_money else 'Never' }}</p>
                                 </div>
@@ -51,8 +51,8 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">Cash</h5>
                                     <h3 class="{% if savings.cash and savings.cash.amount > 0 %}text-success{% endif %}">
-                                        {{ savings.cash.currency if savings.cash else current_user.default_currency }} 
-                                        {{ "%.2f"|format(savings.cash.amount) if savings.cash else "0.00" }}
+                                        {{ savings.cash.currency if savings.cash else current_user.default_currency }}
+                                        {{ savings.cash.amount|money if savings.cash else "0.00" }}
                                     </h3>
                                     <p class="text-muted">Last updated: {{ savings.cash.date.strftime('%Y-%m-%d') if savings.cash else 'Never' }}</p>
                                 </div>
@@ -92,8 +92,8 @@
                                 <tr data-investment-id="{{ investment.id }}">
                                     <td data-type="{{ investment.type }}">{{ investment.type|title }}</td>
                                     <td data-name="{{ investment.name }}">{{ investment.name }}</td>
-                                    <td data-initial-value="{{ investment.initial_value }}">{{ investment.currency }} {{ "%.2f"|format(investment.initial_value) }}</td>
-                                    <td data-current-value="{{ investment.current_value }}">{{ investment.currency }} {{ "%.2f"|format(investment.current_value) }}</td>
+                                    <td data-initial-value="{{ investment.initial_value }}">{{ investment.currency }} {{ investment.initial_value|money }}</td>
+                                    <td data-current-value="{{ investment.current_value }}">{{ investment.currency }} {{ investment.current_value|money }}</td>
                                     <td>
                                         {% set performance = ((investment.current_value - investment.initial_value) / investment.initial_value * 100)|round|int %}
                                         <span class="badge {% if performance >= 0 %}bg-success{% else %}bg-danger{% endif %}">
@@ -101,8 +101,8 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-primary" 
-                                                data-bs-toggle="modal" 
+                                        <button type="button" class="btn btn-sm btn-primary"
+                                                data-bs-toggle="modal"
                                                 data-bs-target="#updateInvestmentModal{{ investment.id }}">
                                             Update Value
                                         </button>
@@ -288,8 +288,8 @@
                 <form method="POST" action="{{ url_for('update_investment', investment_id=investment.id) }}">
                     <div class="mb-3">
                         <label for="current_value" class="form-label">Current Value ({{ investment.currency }})</label>
-                        <input type="number" class="form-control" id="current_value" name="current_value" 
-                               step="0.01" min="0" value="{{ "%.2f"|format(investment.current_value) }}" required>
+                        <input type="number" class="form-control" id="current_value" name="current_value"
+                               step="0.01" min="0" value="{{ investment.current_value|money }}" required>
                     </div>
                     <div class="text-end">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -331,14 +331,14 @@ function editInvestment(investmentId) {
     document.getElementById('editInvestmentId').value = investmentId;
     document.getElementById('editInvestmentName').value = row.querySelector('[data-name]').textContent.trim();
     document.getElementById('editInvestmentType').value = row.querySelector('[data-type]').dataset.type;
-    
+
     // Parse the initial and current values (remove currency symbol and convert to number)
     const initialValueText = initialValueCell.textContent.trim();
     const currentValueText = row.querySelector('[data-current-value]').textContent.trim();
-    
+
     document.getElementById('editInitialValue').value = parseFloat(initialValueText.replace(/[^0-9.-]+/g, ""));
     document.getElementById('editCurrentValue').value = parseFloat(currentValueText.replace(/[^0-9.-]+/g, ""));
-    
+
     // Show the modal
     const bsModal = new bootstrap.Modal(modal);
     bsModal.show();
@@ -367,9 +367,9 @@ function deleteInvestment(investmentId, investmentName) {
                     // Remove the row from the table
                     const row = document.querySelector(`tr[data-investment-id="${investmentId}"]`);
                     if (row) row.remove();
-                    
+
                     showSuccessAlert(data.message);
-                    
+
                     // Refresh the page to update totals
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
@@ -391,9 +391,9 @@ document.addEventListener('DOMContentLoaded', function() {
         editForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const investmentId = document.getElementById('editInvestmentId').value;
-            
+
             const formData = new FormData(this);
-            
+
             fetch(`/investment/edit/${investmentId}`, {
                 method: 'POST',
                 body: formData
@@ -408,17 +408,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         row.querySelector('[data-name]').dataset.name = data.data.name;
                         row.querySelector('[data-type]').textContent = data.data.type;
                         row.querySelector('[data-type]').dataset.type = data.data.type;
-                        row.querySelector('[data-initial-value]').textContent = `${data.data.currency} ${data.data.initial_value.toFixed(2)}`;
+                        row.querySelector('[data-initial-value]').textContent = `${data.data.currency} ${data.data.initial_value|money}`;
                         row.querySelector('[data-initial-value]').dataset.initialValue = data.data.initial_value;
-                        row.querySelector('[data-current-value]').textContent = `${data.data.currency} ${data.data.current_value.toFixed(2)}`;
+                        row.querySelector('[data-current-value]').textContent = `${data.data.currency} ${data.data.current_value|money}`;
                         row.querySelector('[data-current-value]').dataset.currentValue = data.data.current_value;
                     }
-                    
+
                     // Close modal and show success message
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editInvestmentModal'));
                     if (modal) modal.hide();
                     showSuccessAlert(data.message);
-                    
+
                     // Refresh the page to update totals
                     setTimeout(() => window.location.reload(), 1500);
                 } else {

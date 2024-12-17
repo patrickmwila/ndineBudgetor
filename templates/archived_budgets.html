@@ -19,9 +19,9 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <strong>Total Budget:</strong> {{ budget.currency }} {{ "%.2f"|format(budget.total_amount) }}
+                            <strong>Total Budget:</strong> {{ budget.currency }} {{ budget.total_amount|money }}
                         </div>
-                        
+
                         {% if budget.items %}
                             <h6>Budget Items:</h6>
                             <div class="table-responsive">
@@ -38,8 +38,8 @@
                                         {% for item in budget.items %}
                                         <tr>
                                             <td>{{ item.category.name }}</td>
-                                            <td>{{ budget.currency }} {{ "%.2f"|format(item.planned_amount) }}</td>
-                                            <td>{{ budget.currency }} {{ "%.2f"|format(item.spent_amount) }}</td>
+                                            <td>{{ budget.currency }} {{ item.planned_amount|money }}</td>
+                                            <td>{{ budget.currency }} {{ item.spent_amount|money }}</td>
                                             <td>
                                                 {% set percentage = (item.spent_amount / item.planned_amount * 100)|round|int if item.planned_amount > 0 else 0 %}
                                                 <span class="badge {% if percentage > 100 %}bg-danger{% elif percentage > 80 %}bg-warning{% else %}bg-success{% endif %}">

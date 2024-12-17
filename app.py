@@ -215,6 +215,16 @@ def check_timeout(f):
 def inject_now():
     return {'now': datetime.now()}
 
+# Custom template filter for formatting numbers with commas and 2 decimal places
+@app.template_filter('money')
+def money_format(value):
+    try:
+        if value is None:
+            return "0.00"
+        return "{:,.2f}".format(float(value))
+    except (ValueError, TypeError):
+        return "0.00"
+
 # Password validation
 def validate_password(password):
     """
@@ -1268,6 +1278,67 @@ def export_transactions():
     
     # Generate filename with current timestamp
     filename = f'transactions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    
+    # Convert string to bytes
+    bytes_output = BytesIO()
+    bytes_output.write(output.encode('utf-8-sig'))  # Use UTF-8 with BOM for Excel compatibility
+    bytes_output.seek(0)
+    
+    return send_file(
+        bytes_output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/export_budgets')
+@login_required
+def export_budgets():
+    """Export user's budgets to CSV"""
+    # Create a StringIO object to write CSV data
+    si = StringIO()
+    cw = csv.writer(si)
+    
+    # Write headers for budget summary
+    cw.writerow(['Budget Month', 'Total Amount', 'Currency', 'Created At', 'Updated At', 'Status'])
+    cw.writerow([])  # Empty row for separation
+    
+    # Get all budgets for the user
+    budgets = Budget.query.filter_by(user_id=current_user.id).order_by(Budget.month.desc()).all()
+    
+    # Write budget data
+    for budget in budgets:
+        status = 'Archived' if budget.archived else 'Active'
+        cw.writerow([
+            budget.month.strftime('%Y-%m'),
+            budget.total_amount,
+            budget.currency,
+            budget.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            budget.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+            status
+        ])
+        
+        # Add budget items header
+        cw.writerow([])
+        cw.writerow(['Category', 'Planned Amount', 'Spent Amount', 'Description'])
+        
+        # Write budget items
+        for item in budget.items:
+            cw.writerow([
+                item.category.name,
+                item.planned_amount,
+                item.spent_amount,
+                item.description or 'N/A'
+            ])
+        
+        cw.writerow([])  # Empty row between budgets
+    
+    # Create the response
+    output = si.getvalue()
+    si.close()
+    
+    # Generate filename with current timestamp
+    filename = f'budgets_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     
     # Convert string to bytes
     bytes_output = BytesIO()

@@ -45,11 +45,11 @@
                 <div class="card-header">
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
                         <div class="mb-3 mb-md-0">
-                            <h5 class="mb-0">Current Budget: {{ budget.currency }} {{ "%.2f"|format(budget.total_amount) }}</h5>
+                            <h5 class="mb-0">Current Budget: {{ budget.currency }} {{ budget.total_amount|money }}</h5>
                             <small class="text-muted">
-                                Total Planned: {{ budget.currency }} {{ "%.2f"|format(total_planned) }} |
-                                Total Spent: {{ budget.currency }} {{ "%.2f"|format(total_spent) }} |
-                                Available for Budget: {{ budget.currency }} {{ "%.2f"|format(available_for_budget) }}
+                                Total Planned: {{ budget.currency }} {{ total_planned|money }} |
+                                Total Spent: {{ budget.currency }} {{ total_spent|money }} |
+                                Available for Budget: {{ budget.currency }} {{ available_for_budget|money }}
                                 {% if available_for_budget < 0 %}
                                 <span class="text-danger">(Over Budget!)</span>
                                 {% endif %}
@@ -63,7 +63,7 @@
                                 <i class="bi bi-plus-circle"></i> Increase Budget
                             </button>
                             <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#resetBudgetModal">
-                                New Budget
+                                Reset Budget
                             </button>
                             <button type="button" class="btn btn-outline-danger" onclick="confirmArchive({{ budget.id }})">
                                 <i class="bi bi-archive"></i> Archive Budget
@@ -99,28 +99,28 @@
                                 <tr>
                                     <td>{{ item.category.name }}</td>
                                     <td>{{ item.description or '-' }}</td>
-                                    <td>{{ budget.currency }} {{ "%.2f"|format(item.planned_amount) }}</td>
-                                    <td>{{ budget.currency }} {{ "%.2f"|format(item.spent_amount) }}</td>
+                                    <td>{{ budget.currency }} {{ item.planned_amount|money }}</td>
+                                    <td>{{ budget.currency }} {{ item.spent_amount|money }}</td>
                                     <td class="{% if item.planned_amount - item.spent_amount < 0 %}text-danger{% endif %}">
-                                        {{ budget.currency }} {{ "%.2f"|format(item.planned_amount - item.spent_amount) }}
+                                        {{ budget.currency }} {{ (item.planned_amount - item.spent_amount)|money }}
                                     </td>
                                     <td>
                                         <div class="progress">
-                                            <div class="progress-bar {% if item.spent_amount > item.planned_amount %}bg-danger{% endif %}" 
-                                                 role="progressbar" 
+                                            <div class="progress-bar {% if item.spent_amount > item.planned_amount %}bg-danger{% endif %}"
+                                                 role="progressbar"
                                                  style="width: {{ (item.spent_amount / item.planned_amount * 100)|round|int if item.planned_amount > 0 else 0 }}%">
                                             </div>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-primary" 
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
                                                     onclick="editBudgetItem({{ item.id }}, '{{ item.category.id }}', {{ item.planned_amount }})">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-danger" 
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
                                                     onclick="deleteBudgetItem({{ item.id }})">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -133,17 +133,17 @@
                                 <tr class="table-active">
                                     <th>Total</th>
                                     <th></th>
-                                    <th>{{ budget.currency }} {{ "%.2f"|format(total_planned) }}</th>
-                                    <th>{{ budget.currency }} {{ "%.2f"|format(total_spent) }}</th>
-                                    <th>{{ budget.currency }} {{ "%.2f"|format(total_remaining) }}</th>
+                                    <th>{{ budget.currency }} {{ total_planned|money }}</th>
+                                    <th>{{ budget.currency }} {{ total_spent|money }}</th>
+                                    <th>{{ budget.currency }} {{ total_remaining|money }}</th>
                                     <th colspan="2">
                                         {% set total_progress = (total_spent / budget.total_amount * 100) if budget.total_amount > 0 else 0 %}
                                         {% set total_progress_class = 'bg-success' if total_progress < 80 else ('bg-warning' if total_progress < 100 else 'bg-danger') %}
                                         <div class="progress">
-                                            <div class="progress-bar {{ total_progress_class }}" role="progressbar" 
-                                                 style="width: {{ '%.1f'|format(min(total_progress, 100)) }}%;" 
-                                                 aria-valuenow="{{ '%.1f'|format(total_progress) }}" 
-                                                 aria-valuemin="0" 
+                                            <div class="progress-bar {{ total_progress_class }}" role="progressbar"
+                                                 style="width: {{ '%.1f'|format(min(total_progress, 100)) }}%;"
+                                                 aria-valuenow="{{ '%.1f'|format(total_progress) }}"
+                                                 aria-valuemin="0"
                                                  aria-valuemax="100">
                                                 {{ "%.1f"|format(total_progress) }}%
                                             </div>
@@ -187,7 +187,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="description" class="form-label">Description (Optional)</label>
-                        <input type="text" class="form-control" id="description" name="description" 
+                        <input type="text" class="form-control" id="description" name="description"
                                maxlength="200" placeholder="Enter a description for this budget item">
                         <div class="form-text">Add details about this budget item (e.g., "Monthly Internet Bill" or "Birthday Gift for Mom")</div>
                     </div>
@@ -195,7 +195,7 @@
                         <label for="planned_amount" class="form-label">Planned Amount <span class="text-muted">(Available: {{ budget.currency }} {{ "%.2f"|format(available_for_budget) }})</span></label>
                         <div class="input-group">
                             <span class="input-group-text">{{ budget.currency }}</span>
-                            <input type="number" class="form-control" id="planned_amount" 
+                            <input type="number" class="form-control" id="planned_amount"
                                    name="planned_amount" step="0.01" min="0.01" required>
                         </div>
                     </div>
@@ -302,7 +302,7 @@
                         <label for="new_amount" class="form-label">New Budget Amount</label>
                         <div class="input-group">
                             <span class="input-group-text">{{ budget.currency }}</span>
-                            <input type="number" class="form-control" id="new_amount" name="new_amount" 
+                            <input type="number" class="form-control" id="new_amount" name="new_amount"
                                    step="0.01" min="0.01" required>
                         </div>
                     </div>
@@ -331,7 +331,7 @@
                         <label for="increase_amount" class="form-label">Amount to Add</label>
                         <div class="input-group">
                             <span class="input-group-text">{{ budget.currency }}</span>
-                            <input type="number" class="form-control" id="increase_amount" name="amount" 
+                            <input type="number" class="form-control" id="increase_amount" name="amount"
                                    step="0.01" min="0.01" required>
                         </div>
                     </div>
@@ -366,7 +366,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="edit_description" class="form-label">Description (Optional)</label>
-                        <input type="text" class="form-control" id="edit_description" name="description" 
+                        <input type="text" class="form-control" id="edit_description" name="description"
                                maxlength="200" placeholder="Enter a description for this budget item">
                         <div class="form-text">Add details about this budget item (e.g., "Monthly Internet Bill" or "Birthday Gift for Mom")</div>
                     </div>
@@ -420,16 +420,16 @@ function editBudgetItem(itemId, categoryId, plannedAmount) {
     document.getElementById('edit_item_id').value = itemId;
     document.getElementById('edit_category').value = categoryId;
     document.getElementById('edit_planned_amount').value = plannedAmount;
-    
+
     // Show the modal
     const editModal = new bootstrap.Modal(document.getElementById('editBudgetItemModal'));
     editModal.show();
-    
+
     // Set up form submission
     const form = document.getElementById('editBudgetItemForm');
     form.onsubmit = function(e) {
         e.preventDefault();
-        
+
         fetch(`/budget/item/update/${itemId}`, {
             method: 'POST',
             headers: {
@@ -553,9 +553,9 @@ function deleteCategory(categoryId, categoryName) {
                     document.querySelectorAll(`option[value="${categoryId}"]`).forEach(option => option.remove());
                     const row = document.querySelector(`tr[data-category-id="${categoryId}"]`);
                     if (row) row.remove();
-                    
+
                     showSuccessAlert(data.message);
-                    
+
                     // Refresh the page to update the categories list
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
@@ -576,7 +576,7 @@ function loadCategories() {
         .then(data => {
             const categoriesTable = document.querySelector('#categories-table-body');
             categoriesTable.innerHTML = ''; // Clear existing rows
-            
+
             data.forEach(category => {
                 const newRow = document.createElement('tr');
                 newRow.innerHTML = `
@@ -607,7 +607,7 @@ document.getElementById('manageCategoriesModal').addEventListener('show.bs.modal
 
 document.getElementById('addCategoryForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
     fetch('{{ url_for("add_category") }}', {
         method: 'POST',
         body: new FormData(this),
@@ -623,7 +623,7 @@ document.getElementById('addCategoryForm').addEventListener('submit', function(e
             const option = new Option(data.category.name, data.category.id);
             categorySelect.add(option);
             categorySelect.value = data.category.id;
-            
+
             // Add the new category to the manage categories table
             const categoriesTable = document.querySelector('#categories-table-body');
             const newRow = document.createElement('tr');
@@ -638,14 +638,14 @@ document.getElementById('addCategoryForm').addEventListener('submit', function(e
                 </td>
             `;
             categoriesTable.appendChild(newRow);
-            
+
             // Close the add category modal and show success message
             const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
             modal.hide();
-            
+
             // Reset the form
             this.reset();
-            
+
             showSuccessAlert(data.message);
         } else {
             showAlert('Error', data.message, 'error');
@@ -672,10 +672,10 @@ document.getElementById('resetBudgetForm').addEventListener('submit', function(e
             // Close the modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('resetBudgetModal'));
             modal.hide();
-            
+
             // Show success message
             showSuccessAlert(data.message);
-            
+
             // Reload the page to show updated budget
             setTimeout(() => {
                 window.location.reload();
